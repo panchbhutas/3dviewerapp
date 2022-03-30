@@ -40,7 +40,7 @@ public class HomeFragment extends Fragment {
 
     private HomeViewModel homeViewModel;
     private static WebView webView;
-    private static final String webViewUrl = "https://panchbhutas.in/shambho/";
+    private static final String webViewUrl = "https://panchbhutas.in/shambho/"; //replace url with your own server url (copy files 'web files' folder to your web server  )
     private ProgressDialog pDialog;
     public static final int progress_bar_type = 0;
     public RelativeLayout rlSplash;

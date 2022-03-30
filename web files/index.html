@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Panchbhutas Technologies</title>
+
+        <!-- Babylon.js -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/ammo.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+        <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var startRenderLoop = function (engine, canvas) {
+            engine.runRenderLoop(function () {
+                if (sceneToRender && sceneToRender.activeCamera) {
+                    sceneToRender.render();
+                }
+            });
+        }
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var allMeshes = null;
+        var isBasePresent = false;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+            var camera = new BABYLON.ArcRotateCamera("Camera", 0, 0, 10, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setPosition(new BABYLON.Vector3(2, 5, 10));
+            camera.attachControl(canvas, true);
+            camera.upperBetaLimit = (Math.PI / 2) * 0.99;
+        
+            // Light
+            var light = new BABYLON.PointLight("omni", new BABYLON.Vector3(50, 200, 0), scene);
+            const light1 = new BABYLON.DirectionalLight("light", new BABYLON.Vector3(0, -1, 1), scene);
+            const light2 = new BABYLON.DirectionalLight("light2", new BABYLON.Vector3(-2, 2, -1), scene);
+ 
+            const grid = BABYLON.MeshBuilder.CreateGround("grid", {width: 20, height: 20}, scene);
+            grid.material = new BABYLON.GridMaterial("grid", scene);
+            grid.material.backFaceCulling = false;
+            grid.material.gridRatio = 1;//0.2, 0.2, 0.2 //0.8, 0.8, 0.8
+            grid.material.mainColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            grid.material.lineColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+            grid.material.opacity = 0.9;
+            grid.material.freeze();
+            grid.position.y = 0;
+            grid.isPickable = false;
+            grid.doNotSyncBoundingInfo = true;
+            grid.convertToUnIndexedMesh();
+            grid.freezeWorldMatrix();
+            grid.freezeNormals();
+
+            scene.clearColor = new BABYLON.Color3(.8, .8, .8);
+            
+            var startingPoint;
+            var currentMesh;
+        
+            var getGroundPosition = function () {
+                var pickinfo = scene.pick(scene.pointerX, scene.pointerY, function (mesh) { return mesh == grid1; });
+                if (pickinfo.hit) {
+                    return pickinfo.pickedPoint;
+                }
+        
+                return null;
+            }
+        
+            var pointerDown = function (mesh) {
+                    currentMesh = mesh;
+                    startingPoint = getGroundPosition();
+                    if (startingPoint) { // we need to disconnect camera from canvas
+                        setTimeout(function () {
+                            camera.detachControl(canvas);
+                        }, 0);
+                    }
+            }
+        
+            var pointerUp = function () {
+                if (startingPoint) {
+                    camera.attachControl(canvas, true);
+                    startingPoint = null;
+                    return;
+                }
+            }
+        
+            var pointerMove = function () {
+                if (!startingPoint) {
+                    return;
+                }
+                var current = getGroundPosition();
+                if (!current) {
+                    return;
+                }
+        
+                var diff = current.subtract(startingPoint);
+                currentMesh.position.addInPlace(diff);
+        
+                startingPoint = current;
+        
+            }
+        
+            scene.onPointerObservable.add((pointerInfo) => {      		
+                switch (pointerInfo.type) {
+        			case BABYLON.PointerEventTypes.POINTERDOWN:
+        				if(pointerInfo.pickInfo.hit && pointerInfo.pickInfo.pickedMesh != grid1) {
+                            pointerDown(pointerInfo.pickInfo.pickedMesh)
+                        }
+        				break;
+        			case BABYLON.PointerEventTypes.POINTERUP:
+                            pointerUp();
+        				break;
+        			case BABYLON.PointerEventTypes.POINTERMOVE:          
+                            pointerMove();
+        				break;
+                }
+            });
+        
+        
+            return scene;
+        };
+        window.initFunction = async function() {
+            
+            
+            var asyncEngineCreation = async function() {
+                try {
+                return createDefaultEngine();
+                } catch(e) {
+                console.log("the available createEngine function failed. Creating the default engine instead");
+                return createDefaultEngine();
+                }
+            }
+
+            window.engine = await asyncEngineCreation();
+            if (!engine) throw 'engine should not be null.';
+            startRenderLoop(engine, canvas);
+            window.scene = createScene();
+        };
+
+        initFunction().then(() => {
+            sceneToRender = scene                    
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+        function displayObject(fileName){
+
+            if(scene.meshes){
+                console.log("meshes: ", scene.meshes);
+                for(var i=0;i<scene.meshes.length;i++){
+                    if(scene.meshes[i].name!="grid")
+                        scene.meshes[i].dispose();
+                }
+            }
+
+            BABYLON.SceneLoader.ImportMesh(null, "./", fileName, scene,
+                function (meshes, particleSystems, skeletons) {
+                    let env = meshes[0];
+                    allMeshes = env.getChildMeshes();
+                    isBasePresent=true;
+                }
+            );
+
+            app.makeToast("Object Displayed!", true);
+            
+        }
+        function deleteMesh(){
+            isBasePresent=false;
+            console.log("meshes: ",scene.meshes);
+            alert(1);
+        }
+
+    </script>
+</body>
+</html>
